@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Routes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Leaflet (OpenStreetMap) — free, no API key required -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --ink:#1b1f1c;
+    --muted:#8a938b;
+    --line:#e9ece8;
+    --bg:#f4f6f3;
+    --card:#ffffff;
+    --red:#e0554f;
+    --red-bg:#fdeceb;
+    --amber:#e0a536;
+    --amber-bg:#fdf3e2;
+    --green:#3fae4a;
+    --green-bg:#eaf6ea;
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .app{ display:flex; min-height:100vh; }
+
+  /* Sidebar */
+  .sidebar{
+    width:220px;
+    background:#fff;
+    border-right:1px solid var(--line);
+    padding:20px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    flex-shrink:0;
+  }
+  .brand{ display:flex;align-items:center;gap:8px; padding:6px 8px 18px; font-weight:800;font-size:16px; }
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--green);}
+  .nav-link{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px; border-radius:10px;
+    font-size:13px;font-weight:600; color:#6b746a;
+    cursor:pointer; text-decoration:none;
+  }
+  .nav-link.active{background:#eef4ec;color:#245c2c;}
+  .nav-link svg{width:16px;height:16px;flex-shrink:0;}
+
+  /* Main */
+  .main{
+    flex:1; padding:22px 28px;
+    display:flex; flex-direction:column; gap:18px;
+    min-width:0;
+  }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .topbar h1{font-size:20px;margin:0;font-weight:800;}
+  .topbar .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .search-box{
+    display:flex; align-items:center; gap:8px;
+    background:#fff; border:1px solid var(--line);
+    border-radius:12px; padding:9px 14px;
+    font-size:13px; min-width:220px; flex:1;
+  }
+  .search-box svg{width:15px;height:15px;color:#9aa39a;flex-shrink:0;}
+  .search-box input{ border:none; outline:none; font-size:13px; width:100%; font-family:inherit; background:transparent; }
+  .filter-tabs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .filter-tab{
+    font-size:12px;font-weight:600; padding:8px 14px; border-radius:20px;
+    background:#fff; border:1px solid var(--line); color:#6b746a; cursor:pointer;
+  }
+  .filter-tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+
+  /* KPI row */
+  .kpi-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .kpi-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius-md); padding:14px 16px; }
+  .kpi-card .label{font-size:11px;color:var(--muted);font-weight:600;}
+  .kpi-card .value{font-size:22px;font-weight:800;margin-top:4px;}
+  .kpi-card .trend{font-size:11px;margin-top:4px;font-weight:600;}
+  .trend.up{color:var(--red);}
+  .trend.down{color:var(--green);}
+
+  /* ============================================================
+     ROUTE PLANNER — the single live map on this page.
+     From/To inputs (with autocomplete over known towns) + a
+     "Get Route" button draw a route on the map and report the
+     distance and risk below it, Google-Maps-directions style.
+     ============================================================ */
+  .route-planner{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius-lg);
+    padding:18px; display:flex; flex-direction:column; gap:14px;
+  }
+  .rp-head h2{ margin:0; font-size:15px; font-weight:800; }
+  .rp-head .sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+
+  .rp-form{ display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap; }
+  .rp-field{ flex:1; min-width:170px; display:flex; flex-direction:column; gap:4px; }
+  .rp-field .rp-label-row{ display:flex; align-items:center; justify-content:space-between; }
+  .rp-field label{ font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .rp-use-location{ font-size:10px; font-weight:700; color:#245c2c; background:none; border:none; cursor:pointer; padding:0; }
+  .rp-use-location:disabled{ color:var(--muted); cursor:default; }
+  .rp-field input{
+    border:1px solid var(--line); border-radius:10px; padding:9px 12px;
+    font-size:13px; font-family:inherit; outline:none; width:100%;
+  }
+  .rp-field input:focus{ border-color:#9db89a; }
+  .rp-swap-btn{
+    width:34px;height:34px; border-radius:9px; border:1px solid var(--line); background:#fff;
+    display:flex;align-items:center;justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .rp-swap-btn svg{ width:15px;height:15px; }
+  .rp-get-btn{
+    background:var(--ink); color:#fff; border:none; border-radius:10px; padding:10px 18px;
+    font-size:13px; font-weight:700; cursor:pointer; flex-shrink:0; white-space:nowrap;
+  }
+  .rp-error{ display:none; font-size:12px; color:var(--red); font-weight:600; }
+
+  .rp-map-wrap{
+    position:relative; height:320px; border-radius:14px; overflow:hidden;
+    border:1px solid var(--line); isolation:isolate; /* keeps Leaflet's internal z-index layers contained */
+  }
+  .rp-map{ width:100%; height:100%; background:#eef1ec; }
+
+  .rp-result{ display:flex; flex-wrap:wrap; gap:20px 32px; padding-top:2px; }
+  .rp-result .pr-placeholder{ font-size:12px; color:var(--muted); }
+  .pr-row{ display:flex; flex-direction:column; gap:5px; }
+  .pr-row .pr-label{ font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .pr-row .pr-value{ font-size:15px; font-weight:800; }
+  .pr-row .pr-note{ font-size:10px; color:var(--muted); font-weight:600; }
+
+  /* Live GPS "you are here" marker, styled like Google Maps' blue dot */
+  .gps-marker{ position:relative; width:18px; height:18px; }
+  .gps-marker .gps-pulse{
+    position:absolute; top:50%; left:50%; width:14px; height:14px; border-radius:50%;
+    background:rgba(66,133,244,.35); transform:translate(-50%,-50%) scale(1);
+    animation:gpsPulse 1.8s ease-out infinite;
+  }
+  .gps-marker .gps-dot{
+    position:absolute; top:50%; left:50%; width:12px; height:12px; border-radius:50%;
+    background:#4285F4; border:2px solid #fff; transform:translate(-50%,-50%);
+    box-shadow:0 0 3px rgba(0,0,0,.45); z-index:2;
+  }
+  @keyframes gpsPulse{
+    0%{ transform:translate(-50%,-50%) scale(1); opacity:.7; }
+    100%{ transform:translate(-50%,-50%) scale(3.4); opacity:0; }
+  }
+  .gps-unavailable{
+    position:absolute; left:8px; bottom:6px; z-index:5;
+    font-size:9px; font-weight:700; color:#6b746a; background:rgba(255,255,255,.85);
+    padding:2px 6px; border-radius:8px; pointer-events:none;
+  }
+
+  /* Route cards grid */
+  .route-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    gap:14px;
+  }
+  .route-card-item{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-lg);
+    padding:16px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .route-card-item:hover{ border-color:#c9d3c5; transform:translateY(-1px); }
+
+  .rc-head{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .rc-title{ font-size:14px; font-weight:800; }
+  .rc-sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+
+  .risk-chip{
+    font-size:10px;font-weight:700;
+    padding:3px 9px;border-radius:20px;
+    display:inline-flex;align-items:center;gap:4px;
+    white-space:nowrap; flex-shrink:0;
+  }
+  .risk-chip .d{width:6px;height:6px;border-radius:50%;}
+  .risk-chip.high{background:var(--red-bg);color:var(--red);}
+  .risk-chip.high .d{background:var(--red);}
+  .risk-chip.med{background:var(--amber-bg);color:var(--amber);}
+  .risk-chip.med .d{background:var(--amber);}
+  .risk-chip.low{background:var(--green-bg);color:var(--green);}
+  .risk-chip.low .d{background:var(--green);}
+
+  .rc-stats{
+    display:flex; justify-content:space-between;
+    font-size:11px; color:var(--muted);
+    margin-top:8px;
+    padding-top:10px;
+    border-top:1px solid #f1f3ef;
+  }
+  .rc-stats b{ color:var(--ink); font-weight:700; }
+
+  .rc-shipments{
+    display:flex; align-items:center; gap:6px;
+    margin-top:10px;
+  }
+  .rc-thumb{ width:24px;height:24px;border-radius:7px; object-fit:cover; border:2px solid #fff; margin-left:-8px; }
+  .rc-thumb:first-child{ margin-left:0; }
+  .img-placeholder{ display:flex;align-items:center;justify-content:center; font-weight:800; font-size:10px; }
+  .rc-shipments-count{ font-size:11px; color:var(--muted); margin-left:4px; }
+
+  .plan-route-btn{
+    margin-top:10px; width:100%;
+    background:#f4f6f3; border:1px solid var(--line); color:#245c2c;
+    font-size:11.5px; font-weight:700; padding:8px; border-radius:9px; cursor:pointer;
+  }
+  .plan-route-btn:hover{ background:#eef4ec; }
+
+  .empty-state{ padding:40px; text-align:center; color:var(--muted); font-size:13px; grid-column:1/-1; }
+
+  /* Slide-over detail panel */
+  .overlay{
+    position:fixed; inset:0; background:rgba(20,25,20,0.35);
+    z-index:40; opacity:0; pointer-events:none; transition:opacity .25s ease;
+  }
+  .overlay.open{ opacity:1; pointer-events:auto; }
+  .drawer{
+    position:fixed; top:0; right:0; bottom:0;
+    width:460px; max-width:92vw; background:#fff; z-index:50;
+    box-shadow:-20px 0 50px rgba(0,0,0,.15);
+    transform:translateX(100%); transition:transform .3s ease;
+    overflow-y:auto; padding:22px;
+  }
+  .drawer.open{ transform:translateX(0); }
+  .drawer-head{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; }
+  .drawer-head h2{ margin:0; font-size:18px; font-weight:800; }
+  .drawer-head .id{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .close-btn{
+    width:32px;height:32px; border-radius:9px; background:#f4f6f3; border:none;
+    display:flex;align-items:center;justify-content:center; cursor:pointer; color:var(--ink); flex-shrink:0;
+  }
+  .close-btn svg{width:15px;height:15px;}
+
+  .route-card{
+    background:linear-gradient(135deg,#f0f4ee,#e6ede2);
+    border-radius:16px; padding:30px 34px 22px; margin-bottom:16px; position:relative;
+  }
+  .route-line{ position:relative; height:20px; margin:0 18px; }
+  .route-track{
+    position:absolute; top:50%; left:0; right:0; height:2px;
+    background:repeating-linear-gradient(90deg,#b7c2b3 0 6px, transparent 6px 12px);
+    transform:translateY(-50%); z-index:0;
+  }
+  .route-point{
+    position:absolute; top:50%; transform:translate(-50%,-50%); z-index:1;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    font-size:10px;font-weight:700;color:#4a544a;
+  }
+  .route-point .lbl{ position:absolute; top:18px; white-space:nowrap; left:50%; transform:translateX(-50%); }
+  .route-point:first-child .lbl{left:0;transform:none;}
+  .route-point:last-child .lbl{left:auto;right:0;transform:none;}
+  .route-dot{ width:12px;height:12px;border-radius:50%; background:#fff;border:3px solid #4a544a; }
+  .route-point.risk .route-dot{ border-color:var(--red); background:var(--red); box-shadow:0 0 0 5px rgba(224,85,79,.18); }
+  .route-point.risk{ color:var(--red); }
+
+  .section-title{ font-size:13px;font-weight:700; margin:0 0 8px; }
+
+  .weather-box{ background:#f8faf7; border-radius:14px; padding:12px 14px; margin-bottom:16px; }
+  .weather-item{ display:flex;align-items:center;justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid #ecefe9; }
+  .weather-item:last-child{ border-bottom:none; }
+  .weather-item .l{ display:flex;align-items:center;gap:6px; color:#5b6a58; font-weight:600; }
+  .weather-item .l svg{ width:13px;height:13px;color:#8a938b; }
+  .weather-item .v{ font-weight:700; }
+
+  .ship-list-mini{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .ship-mini-row{
+    display:flex; align-items:center; gap:10px;
+    background:#f8faf7; border-radius:12px; padding:10px 12px;
+  }
+  .ship-mini-thumb{ width:34px;height:34px;border-radius:9px; object-fit:cover; flex-shrink:0; }
+  .ship-mini-name{ font-size:12.5px; font-weight:700; }
+  .ship-mini-meta{ font-size:11px; color:var(--muted); }
+  .ship-mini-row .risk-chip{ margin-left:auto; }
+
+  @media (max-width:900px){
+    
+    .kpi-row{ grid-template-columns:1fr 1fr; }
+    .route-grid{ grid-template-columns:1fr; }
+    .rp-form{ flex-direction:column; align-items:stretch; }
+    .rp-get-btn{ width:100%; }
+  }
+
+  /* ============================================================
+     MOBILE NAVIGATION
+     Below 900px the fixed sidebar becomes a slide-in drawer,
+     opened by a hamburger button, instead of just disappearing
+     with no way to navigate between pages.
+     ============================================================ */
+  .mobile-topbar{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    background:#fff;
+    border-bottom:1px solid var(--line);
+    padding:12px 16px;
+    position:sticky;
+    top:0;
+    z-index:35;
+  }
+  .mobile-topbar .brand{ padding:0; }
+  .hamburger-btn{
+    width:38px;height:38px;
+    border-radius:10px;
+    background:#f4f6f3;
+    border:none;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    color:var(--ink);
+    flex-shrink:0;
+  }
+  .hamburger-btn svg{ width:18px;height:18px; }
+
+  .sidebar-overlay{
+    position:fixed; inset:0;
+    background:rgba(20,25,20,0.4);
+    z-index:59;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .sidebar-overlay.open{ opacity:1; pointer-events:auto; }
+
+  @media (max-width:900px){
+    .mobile-topbar{ display:flex; }
+    .sidebar{
+      position:fixed;
+      top:0; bottom:0; left:0;
+      z-index:60;
+      transform:translateX(-100%);
+      transition:transform .25s ease;
+      box-shadow:10px 0 30px rgba(0,0,0,.12);
+    }
+    .sidebar.open{ transform:translateX(0); }
+  }
+
+
+  @media (max-width:480px){
+    .kpi-row{ grid-template-columns:1fr 1fr; gap:10px; }
+    .kpi-card{ padding:12px; }
+    .kpi-card .value{ font-size:18px; }
+    .topbar{ flex-direction:column; align-items:flex-start; gap:10px; }
+    .main{ padding:16px; gap:14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mobile-topbar">
+  <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+  <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebarNav">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+  </button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebarNav">
+    <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+    <a class="nav-link" href="shipment-risk-dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-link" href="shipments.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+      Shipments
+    </a>
+    <a class="nav-link active" href="routes.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5-2V6l5 2m0 12l6-2m-6 2V8m6 10l5 2V8l-5-2m0 14V6m0 2L9 6"/></svg>
+      Routes
+    </a>
+    <a class="nav-link" href="weather.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4 2.2A4 4 0 0 0 6 19h11.5z"/></svg>
+      Weather
+    </a>
+     <a class="nav-link" href="dealer-suggestion.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.2-9.5-9.6C.7 7.9 2.3 4 6 4c2 0 3.4 1.1 4 2.2C10.6 5.1 12 4 14 4c3.7 0 5.3 3.9 3.5 7.4C19 15.8 12 21 12 21z"/></svg>
+      Dealer Match
+    </a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1>Routes</h1>
+        <div class="sub" id="resultCount">Loading routes…</div>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="label">Total Routes</div><div class="value" id="kpiTotal">-</div></div>
+      <div class="kpi-card"><div class="label">High Risk Routes</div><div class="value" id="kpiHigh">-</div><div class="trend up">Needs attention</div></div>
+      <div class="kpi-card"><div class="label">Active Shipments</div><div class="value" id="kpiShipments">-</div></div>
+      <div class="kpi-card"><div class="label">Avg. Risk Score</div><div class="value" id="kpiAvg">-</div></div>
+    </div>
+
+    <!-- ============================================================
+         ROUTE PLANNER — the one live map on this page
+         ============================================================ -->
+    <div class="route-planner" id="routePlanner">
+      <div class="rp-head">
+        <h2>Live Route Map</h2>
+        <div class="sub">Enter an origin and destination to see the route, distance and risk</div>
+      </div>
+
+      <div class="rp-form">
+        <div class="rp-field">
+          <div class="rp-label-row">
+            <label for="originInput">From</label>
+            <button type="button" class="rp-use-location" id="useMyLocationBtn">Use my location</button>
+          </div>
+          <input list="cityList" id="originInput" placeholder="e.g. Coimbatore" />
+        </div>
+
+        <button type="button" class="rp-swap-btn" id="swapBtn" title="Swap origin and destination">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h13l-4-4M17 17H4l4 4"/></svg>
+        </button>
+
+        <div class="rp-field">
+          <div class="rp-label-row"><label for="destInput">To</label></div>
+          <input list="cityList" id="destInput" placeholder="e.g. Palladam" />
+        </div>
+
+        <datalist id="cityList"></datalist>
+
+        <button type="button" class="rp-get-btn" id="getRouteBtn">Get Route</button>
+      </div>
+
+      <div class="rp-error" id="plannerError"></div>
+
+      <div class="rp-map-wrap" id="plannerMapWrap">
+        <div class="rp-map" id="plannerMap"></div>
+      </div>
+
+      <div class="rp-result" id="plannerResult">
+        <div class="pr-placeholder">Enter a route above and tap “Get Route” to see distance and risk here.</div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input id="searchInput" placeholder="Search by origin or destination..." />
+      </div>
+      <div class="filter-tabs" id="filterTabs">
+        <div class="filter-tab active" data-filter="all">All</div>
+        <div class="filter-tab" data-filter="high">High Risk</div>
+        <div class="filter-tab" data-filter="med">Medium Risk</div>
+        <div class="filter-tab" data-filter="low">Low Risk</div>
+      </div>
+    </div>
+
+    <div class="route-grid" id="routeGrid"></div>
+  </div>
+</div>
+
+<!-- Slide-over detail panel -->
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer"></div>
+
+<script>
+  // ============================================================
+  // PRODUCT IMAGES & LINKS — same convention as the other pages.
+  // ============================================================
+ const productImages = {
+    Tomatoes: "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/tomatoes.jpg",
+    Onions:   "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Onion_garden.jpg",
+    Rice:     "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Rice-Parts.jpg",
+    Bananas:  "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/banana.jpeg",
+    Carrots:  "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Carrot_large.webp",
+    Potatoes: "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Potatto.png"
+  };
+  const productColors = {
+    Tomatoes: "#e0554f", Onions: "#c98a4b", Rice: "#d9c67a",
+    Bananas: "#e0c23f", Carrots: "#e08a3f", Potatoes: "#b98f5e"
+  };
+  function placeholderHtml(product, className){
+    const color = productColors[product] || "#8a938b";
+    return `<div class="${className} img-placeholder" style="background:${color}22;color:${color};">${(product || "?")[0]}</div>`;
+  }
+
+  // Called via a function reference from onerror, not by inlining raw
+  // HTML into the attribute string — the placeholder markup's own double
+  // quotes (class="...", style="...") would otherwise cut the
+  // onerror="..." attribute short, spilling the rest out as broken
+  // stray text/attributes (exactly the bug you saw rendered on-page).
+  window.handleProductImgError = function(imgEl, product, className){
+    imgEl.outerHTML = placeholderHtml(product, className);
+  };
+  function productImageTag(product, className){
+    const url = productImages[product];
+    const looksReal = url && !url.includes("YOUR_CLOUD_NAME");
+    return looksReal
+      ? `<img class="${className}" src="${url}" alt="${product}"
+           onerror="window.handleProductImgError(this, '${product}', '${className}')" />`
+      : placeholderHtml(product, className);
+  }
+
+  // ============================================================
+  // ROUTE DATA
+  // In a real app, fetch this from your API:
+  //   const routes = await fetch('/api/routes').then(r => r.json());
+  // Each route lists its own stops (with risk zones) and the
+  // shipments currently assigned to it.
+  // ============================================================
+  const routes = [
+    {
+      id: "RT001", from: "Kattur", to: "Chennai", risk: "high", score: 82,
+      distanceKm: 340,
+      weather: { rain: 82, humidity: 91, temp: 29 },
+      stops: [
+        { name: "Farm — Kattur", pos: 0, lat: 10.8200, lng: 78.6900 },
+        { name: "Risk Zone", pos: 50, risk: true, lat: 11.9401, lng: 79.4861 },
+        { name: "Dest. — Chennai", pos: 100, lat: 13.0827, lng: 80.2707 }
+      ],
+      shipments: [
+        { id: "FR001", product: "Tomatoes", qty: "500 kg" },
+        { id: "FR007", product: "Tomatoes", qty: "950 kg" }
+      ]
+    },
+    {
+      id: "RT002", from: "Erode", to: "Coimbatore", risk: "med", score: 54,
+      distanceKm: 95,
+      weather: { rain: 40, humidity: 68, temp: 31 },
+      stops: [
+        { name: "Farm — Erode", pos: 0, lat: 11.3410, lng: 77.7172 },
+        { name: "Checkpoint — Tirupur", pos: 45, lat: 11.1085, lng: 77.3411 },
+        { name: "Dest. — Coimbatore", pos: 100, lat: 11.0168, lng: 76.9558 }
+      ],
+      shipments: [
+        { id: "FR002", product: "Onions", qty: "1,200 kg" }
+      ]
+    },
+    {
+      id: "RT003", from: "Thanjavur", to: "Madurai", risk: "low", score: 21,
+      distanceKm: 180,
+      weather: { rain: 8, humidity: 45, temp: 33 },
+      stops: [
+        { name: "Farm — Thanjavur", pos: 0, lat: 10.7870, lng: 79.1378 },
+        { name: "Dest. — Madurai", pos: 100, lat: 9.9252, lng: 78.1198 }
+      ],
+      shipments: [
+        { id: "FR003", product: "Rice", qty: "2,000 kg" }
+      ]
+    },
+    {
+      id: "RT004", from: "Trichy", to: "Salem", risk: "high", score: 76,
+      distanceKm: 150,
+      weather: { rain: 70, humidity: 85, temp: 28 },
+      stops: [
+        { name: "Farm — Trichy", pos: 0, lat: 10.7905, lng: 78.7047 },
+        { name: "Namakkal", pos: 35, lat: 11.2189, lng: 78.1677 },
+        { name: "Risk Zone", pos: 68, risk: true, lat: 11.4450, lng: 78.1570 },
+        { name: "Dest. — Salem", pos: 100, lat: 11.6643, lng: 78.1460 }
+      ],
+      shipments: [
+        { id: "FR004", product: "Bananas", qty: "800 kg" }
+      ]
+    },
+    {
+      id: "RT005", from: "Ooty", to: "Coimbatore", risk: "med", score: 48,
+      distanceKm: 88,
+      weather: { rain: 35, humidity: 60, temp: 22 },
+      stops: [
+        { name: "Farm — Ooty", pos: 0, lat: 11.4064, lng: 76.6932 },
+        { name: "Mettupalayam", pos: 55, lat: 11.2996, lng: 76.9367 },
+        { name: "Dest. — Coimbatore", pos: 100, lat: 11.0168, lng: 76.9558 }
+      ],
+      shipments: [
+        { id: "FR005", product: "Carrots", qty: "600 kg" }
+      ]
+    },
+    {
+      id: "RT006", from: "Kodaikanal", to: "Dindigul", risk: "low", score: 15,
+      distanceKm: 65,
+      weather: { rain: 5, humidity: 40, temp: 24 },
+      stops: [
+        { name: "Farm — Kodaikanal", pos: 0, lat: 10.2381, lng: 77.4892 },
+        { name: "Dest. — Dindigul", pos: 100, lat: 10.3673, lng: 77.9803 }
+      ],
+      shipments: [
+        { id: "FR006", product: "Potatoes", qty: "1,500 kg" }
+      ]
+    },
+    {
+      id: "RT007", from: "Thanjavur", to: "Trichy", risk: "low", score: 9,
+      distanceKm: 58,
+      weather: { rain: 2, humidity: 38, temp: 32 },
+      stops: [
+        { name: "Farm — Thanjavur", pos: 0, lat: 10.7870, lng: 79.1378 },
+        { name: "Dest. — Trichy", pos: 100, lat: 10.7905, lng: 78.7047 }
+      ],
+      shipments: [
+        { id: "FR008", product: "Rice", qty: "3,200 kg" }
+      ]
+    }
+  ];
+
+  let currentFilter = "all";
+  let searchTerm = "";
+
+  function riskLabel(r){
+    return r === "high" ? "High Risk" : r === "med" ? "Medium Risk" : "Low Risk";
+  }
+
+  function getFiltered(){
+    let list = routes.filter(r => currentFilter === "all" || r.risk === currentFilter);
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(r => r.from.toLowerCase().includes(q) || r.to.toLowerCase().includes(q));
+    }
+    return list;
+  }
+
+  function renderKpis(){
+    const total = routes.length;
+    const high = routes.filter(r => r.risk === "high").length;
+    const totalShipments = routes.reduce((sum, r) => sum + r.shipments.length, 0);
+    const avgScore = Math.round(routes.reduce((sum, r) => sum + r.score, 0) / total);
+    document.getElementById("kpiTotal").textContent = total;
+    document.getElementById("kpiHigh").textContent = high;
+    document.getElementById("kpiShipments").textContent = totalShipments;
+    document.getElementById("kpiAvg").textContent = avgScore;
+  }
+
+  function renderGrid(){
+    const list = getFiltered();
+    const grid = document.getElementById("routeGrid");
+    document.getElementById("resultCount").textContent =
+      `Showing ${list.length} of ${routes.length} routes`;
+
+    if (list.length === 0) {
+      grid.innerHTML = `<div class="empty-state">No routes match your search or filter.</div>`;
+      return;
+    }
+
+    grid.innerHTML = list.map(r => `
+      <div class="route-card-item" data-id="${r.id}">
+        <div class="rc-head">
+          <div>
+            <div class="rc-title">${r.from} → ${r.to}</div>
+            <div class="rc-sub">${r.distanceKm} km · ${r.shipments.length} active shipment${r.shipments.length !== 1 ? 's' : ''}</div>
+          </div>
+          <span class="risk-chip ${r.risk}"><span class="d"></span>${riskLabel(r.risk)}</span>
+        </div>
+
+        <div class="rc-stats">
+          <span>Risk Score <b>${r.score}/100</b></span>
+          <span>Rain <b>${r.weather.rain}%</b></span>
+          <span>Temp <b>${r.weather.temp}°C</b></span>
+        </div>
+
+        <div class="rc-shipments">
+          ${r.shipments.slice(0, 4).map(s => productImageTag(s.product, "rc-thumb")).join("")}
+          <span class="rc-shipments-count">${r.shipments.map(s => '#' + s.id).join(", ")}</span>
+        </div>
+
+        <button type="button" class="plan-route-btn" data-from="${r.from}" data-to="${r.to}">
+          Plan this route on the map ↑
+        </button>
+      </div>
+    `).join("");
+  }
+
+  // A single delegated listener on the (never-replaced) grid container handles
+  // both "open drawer" and "plan this route" clicks for every card, including
+  // ones re-rendered after filtering/searching.
+  document.getElementById("routeGrid").addEventListener("click", (e) => {
+    const planBtn = e.target.closest(".plan-route-btn");
+    if (planBtn) {
+      e.stopPropagation();
+      planRouteFromCard(planBtn.dataset.from, planBtn.dataset.to);
+      return;
+    }
+    const card = e.target.closest(".route-card-item");
+    if (card) openDrawer(card.dataset.id);
+  });
+
+  function fullRoute(route){
+    const stopsHtml = route.stops.map(st => `
+      <div class="route-point ${st.risk ? 'risk' : ''}" style="left:${st.pos}%;">
+        <div class="route-dot"></div>
+        <div class="lbl">${st.name}</div>
+      </div>
+    `).join("");
+    return `
+      <div class="route-line">
+        <div class="route-track"></div>
+        ${stopsHtml}
+      </div>
+    `;
+  }
+
+  function openDrawer(id){
+    const r = routes.find(x => x.id === id);
+    if (!r) return;
+    const drawer = document.getElementById("drawer");
+    const overlay = document.getElementById("overlay");
+
+    drawer.innerHTML = `
+      <div class="drawer-head">
+        <div>
+          <h2>${r.from} → ${r.to}</h2>
+          <div class="id">${r.distanceKm} km · Route #${r.id}</div>
+        </div>
+        <button class="close-btn" id="closeDrawerBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <span class="risk-chip ${r.risk}" style="font-size:11px;padding:5px 12px;margin-bottom:14px;display:inline-flex;">
+        <span class="d"></span>${riskLabel(r.risk)} · Score ${r.score}/100
+      </span>
+
+      <div class="route-card">${fullRoute(r)}</div>
+
+      <div class="section-title">Weather Along Route</div>
+      <div class="weather-box">
+        <div class="weather-item"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2s6 7 6 12a6 6 0 0 1-12 0c0-5 6-12 6-12z"/></svg>Rain</div><div class="v">${r.weather.rain}%</div></div>
+        <div class="weather-item"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10M12 22a4 4 0 0 0 2-7.5V4a2 2 0 0 0-4 0v10.5A4 4 0 0 0 12 22z"/></svg>Humidity</div><div class="v">${r.weather.humidity}%</div></div>
+        <div class="weather-item"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg>Temp</div><div class="v">${r.weather.temp}°C</div></div>
+      </div>
+
+      <div class="section-title">Shipments On This Route (${r.shipments.length})</div>
+      <div class="ship-list-mini">
+        ${r.shipments.map(s => `
+          <div class="ship-mini-row">
+            ${productImageTag(s.product, "ship-mini-thumb")}
+            <div>
+              <div class="ship-mini-name">#${s.id} · ${s.product}</div>
+              <div class="ship-mini-meta">${s.qty}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+
+    document.getElementById("closeDrawerBtn").addEventListener("click", closeDrawer);
+    drawer.classList.add("open");
+    overlay.classList.add("open");
+  }
+
+  function closeDrawer(){
+    document.getElementById("drawer").classList.remove("open");
+    document.getElementById("overlay").classList.remove("open");
+  }
+  document.getElementById("overlay").addEventListener("click", closeDrawer);
+
+  document.getElementById("filterTabs").addEventListener("click", (e) => {
+    const tab = e.target.closest(".filter-tab");
+    if (!tab) return;
+    document.querySelectorAll(".filter-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentFilter = tab.dataset.filter;
+    renderGrid();
+  });
+
+  document.getElementById("searchInput").addEventListener("input", (e) => {
+    searchTerm = e.target.value.trim();
+    renderGrid();
+  });
+
+  // ============================================================
+  // ROUTE PLANNER — single live map (free OpenStreetMap tiles via
+  // Leaflet, no API key required).
+  //
+  // Known towns are geocoded locally from a small fixed dictionary
+  // (this is a prototype without a paid geocoding/routing service).
+  // Distance is computed with the Haversine formula (straight-line);
+  // when the From/To pair matches one of the seeded `routes` above,
+  // we show that route's real distance, risk score and weather
+  // instead of the straight-line estimate.
+  // ============================================================
+  const cityCoords = {
+    Kattur:       { lat: 10.8200, lng: 78.6900 },
+    Chennai:      { lat: 13.0827, lng: 80.2707 },
+    Erode:        { lat: 11.3410, lng: 77.7172 },
+    Tirupur:      { lat: 11.1085, lng: 77.3411 },
+    Coimbatore:   { lat: 11.0168, lng: 76.9558 },
+    Thanjavur:    { lat: 10.7870, lng: 79.1378 },
+    Madurai:      { lat: 9.9252,  lng: 78.1198 },
+    Trichy:       { lat: 10.7905, lng: 78.7047 },
+    Namakkal:     { lat: 11.2189, lng: 78.1677 },
+    Salem:        { lat: 11.6643, lng: 78.1460 },
+    Ooty:         { lat: 11.4064, lng: 76.6932 },
+    Mettupalayam: { lat: 11.2996, lng: 76.9367 },
+    Kodaikanal:   { lat: 10.2381, lng: 77.4892 },
+    Dindigul:     { lat: 10.3673, lng: 77.9803 },
+    Palladam:     { lat: 10.9903, lng: 77.2839 }
+  };
+
+  document.getElementById("cityList").innerHTML =
+    Object.keys(cityCoords).map(c => `<option value="${c}">`).join("");
+
+  let plannerMap = null;
+  let plannerRouteLayer = null;
+  let plannerUserMarker = null;
+
+  let liveLocation = null;            // { lat, lng } once the browser reports it
+  let liveLocationStatus = "pending"; // pending | available | unavailable
+
+  function initPlannerMap(){
+    plannerMap = L.map("plannerMap", { zoomControl: true }).setView([10.9, 78.3], 7);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(plannerMap);
+    plannerRouteLayer = L.layerGroup().addTo(plannerMap);
+  }
+
+  function getCityCoord(name){
+    const key = Object.keys(cityCoords).find(k => k.toLowerCase() === name.trim().toLowerCase());
+    return key ? { key, lat: cityCoords[key].lat, lng: cityCoords[key].lng } : null;
+  }
+
+  function haversineKm(lat1, lng1, lat2, lng2){
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function findMatchingRoute(originKey, destKey){
+    return routes.find(r =>
+      (r.from.toLowerCase() === originKey.toLowerCase() && r.to.toLowerCase() === destKey.toLowerCase()) ||
+      (r.from.toLowerCase() === destKey.toLowerCase() && r.to.toLowerCase() === originKey.toLowerCase())
+    );
+  }
+
+  function showPlannerError(msg){
+    const el = document.getElementById("plannerError");
+    el.textContent = msg;
+    el.style.display = msg ? "block" : "none";
+  }
+
+  function renderPlannerResult(distanceKm, matched){
+    const box = document.getElementById("plannerResult");
+    if (!matched) {
+      box.innerHTML = `
+        <div class="pr-row">
+          <div class="pr-label">Distance</div>
+          <div class="pr-value">${Math.round(distanceKm)} km</div>
+          <div class="pr-note">Straight-line estimate — no logged data for this pair yet</div>
+        </div>
+        <div class="pr-row">
+          <div class="pr-label">Risk</div>
+          <div class="pr-value" style="color:var(--muted);font-size:12px;">No risk data available</div>
+        </div>
+      `;
+      return;
+    }
+    box.innerHTML = `
+      <div class="pr-row">
+        <div class="pr-label">Distance</div>
+        <div class="pr-value">${matched.distanceKm} km</div>
+      </div>
+      <div class="pr-row">
+        <div class="pr-label">Risk</div>
+        <span class="risk-chip ${matched.risk}" style="font-size:12px;padding:5px 12px;">
+          <span class="d"></span>${riskLabel(matched.risk)} · ${matched.score}/100
+        </span>
+      </div>
+      <div class="pr-row">
+        <div class="pr-label">Rain</div>
+        <div class="pr-value">${matched.weather.rain}%</div>
+      </div>
+      <div class="pr-row">
+        <div class="pr-label">Humidity</div>
+        <div class="pr-value">${matched.weather.humidity}%</div>
+      </div>
+      <div class="pr-row">
+        <div class="pr-label">Temp</div>
+        <div class="pr-value">${matched.weather.temp}°C</div>
+      </div>
+    `;
+  }
+
+  function getRoute(){
+    showPlannerError("");
+    const originVal = document.getElementById("originInput").value.trim();
+    const destVal = document.getElementById("destInput").value.trim();
+
+    if (!originVal || !destVal) {
+      showPlannerError("Enter both an origin and a destination.");
+      return;
+    }
+
+    const origin = getCityCoord(originVal);
+    const dest = getCityCoord(destVal);
+    if (!origin || !dest) {
+      showPlannerError(`Town not recognized. Try one of: ${Object.keys(cityCoords).join(", ")}.`);
+      return;
+    }
+    if (origin.key.toLowerCase() === dest.key.toLowerCase()) {
+      showPlannerError("Origin and destination are the same place.");
+      return;
+    }
+
+    plannerRouteLayer.clearLayers();
+
+    L.polyline([[origin.lat, origin.lng], [dest.lat, dest.lng]], {
+      color: "#245c2c", weight: 4, opacity: 0.85
+    }).addTo(plannerRouteLayer);
+
+    L.circleMarker([origin.lat, origin.lng], {
+      radius: 7, color: "#245c2c", fillColor: "#3fae4a", fillOpacity: 1, weight: 2
+    }).bindTooltip(origin.key, { direction: "top" }).addTo(plannerRouteLayer);
+
+    L.circleMarker([dest.lat, dest.lng], {
+      radius: 7, color: "#245c2c", fillColor: "#e0554f", fillOpacity: 1, weight: 2
+    }).bindTooltip(dest.key, { direction: "top" }).addTo(plannerRouteLayer);
+
+    plannerMap.fitBounds(L.latLngBounds([[origin.lat, origin.lng], [dest.lat, dest.lng]]), { padding: [40, 40] });
+
+    const matched = findMatchingRoute(origin.key, dest.key);
+    const distanceKm = matched ? matched.distanceKm : haversineKm(origin.lat, origin.lng, dest.lat, dest.lng);
+    renderPlannerResult(distanceKm, matched);
+
+    // Re-apply the live location marker since clearLayers() above only touched the route layer group
+    if (liveLocationStatus === "available" && liveLocation) applyPlannerLiveLocation();
+  }
+
+  function planRouteFromCard(from, to){
+    document.getElementById("originInput").value = from;
+    document.getElementById("destInput").value = to;
+    getRoute();
+    document.getElementById("routePlanner").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  document.getElementById("getRouteBtn").addEventListener("click", getRoute);
+  [document.getElementById("originInput"), document.getElementById("destInput")].forEach(input => {
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") getRoute(); });
+  });
+  document.getElementById("swapBtn").addEventListener("click", () => {
+    const o = document.getElementById("originInput");
+    const d = document.getElementById("destInput");
+    [o.value, d.value] = [d.value, o.value];
+    if (o.value && d.value) getRoute();
+  });
+
+  function nearestCityTo(lat, lng){
+    let best = null, bestDist = Infinity;
+    for (const [name, coord] of Object.entries(cityCoords)) {
+      const d = haversineKm(lat, lng, coord.lat, coord.lng);
+      if (d < bestDist) { bestDist = d; best = name; }
+    }
+    return best;
+  }
+
+  document.getElementById("useMyLocationBtn").addEventListener("click", () => {
+    if (!liveLocation) {
+      showPlannerError("Live location isn't available yet — allow location access in your browser and try again.");
+      return;
+    }
+    document.getElementById("originInput").value = nearestCityTo(liveLocation.lat, liveLocation.lng);
+  });
+
+  // --- Live GPS marker on the planner map ---
+  function gpsDivIcon(){
+    return L.divIcon({
+      className: "",
+      html: '<div class="gps-marker"><div class="gps-pulse"></div><div class="gps-dot"></div></div>',
+      iconSize: [18, 18]
+    });
+  }
+
+  function applyPlannerLiveLocation(){
+    if (!plannerMap || !liveLocation) return;
+    if (plannerUserMarker) {
+      plannerUserMarker.setLatLng([liveLocation.lat, liveLocation.lng]);
+    } else {
+      plannerUserMarker = L.marker([liveLocation.lat, liveLocation.lng], {
+        icon: gpsDivIcon(), interactive: false
+      }).bindTooltip("Your live location", { direction: "top", offset: [0, -8] })
+        .addTo(plannerMap);
+    }
+  }
+
+  function markPlannerLocationUnavailable(){
+    const wrap = document.getElementById("plannerMapWrap");
+    if (wrap && !wrap.querySelector(".gps-unavailable")) {
+      const label = document.createElement("div");
+      label.className = "gps-unavailable";
+      label.textContent = "Live location unavailable";
+      wrap.appendChild(label);
+    }
+  }
+
+  function startLiveLocationWatch(){
+    if (!("geolocation" in navigator)) {
+      liveLocationStatus = "unavailable";
+      markPlannerLocationUnavailable();
+      return;
+    }
+    navigator.geolocation.watchPosition(
+      (pos) => {
+        liveLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        liveLocationStatus = "available";
+        applyPlannerLiveLocation();
+      },
+      () => {
+        liveLocationStatus = "unavailable";
+        markPlannerLocationUnavailable();
+      },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+    );
+  }
+
+  renderKpis();
+  renderGrid();
+  initPlannerMap();
+  startLiveLocationWatch();
+
+  // ---- Mobile nav: hamburger opens/closes the slide-in sidebar ----
+  (function(){
+    const btn = document.getElementById("hamburgerBtn");
+    const sidebar = document.getElementById("sidebarNav");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (!btn || !sidebar || !overlay) return;
+
+    function openNav(){
+      sidebar.classList.add("open");
+      overlay.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+    }
+    function closeNav(){
+      sidebar.classList.remove("open");
+      overlay.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+    btn.addEventListener("click", () => {
+      sidebar.classList.contains("open") ? closeNav() : openNav();
+    });
+    overlay.addEventListener("click", closeNav);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
+    // Close the drawer after tapping a nav link, so the next page
+    // doesn't load with the menu still open.
+    sidebar.querySelectorAll("a.nav-link").forEach(link => {
+      link.addEventListener("click", closeNav);
+    });
+  })();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>All Shipments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1b1f1c;
+    --muted:#8a938b;
+    --line:#e9ece8;
+    --bg:#f4f6f3;
+    --card:#ffffff;
+    --red:#e0554f;
+    --red-bg:#fdeceb;
+    --amber:#e0a536;
+    --amber-bg:#fdf3e2;
+    --green:#3fae4a;
+    --green-bg:#eaf6ea;
+    --radius-lg:20px;
+    --radius-md:14px;
+    --radius-sm:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .app{ display:flex; min-height:100vh; }
+
+  /* Sidebar */
+  .sidebar{
+    width:220px;
+    background:#fff;
+    border-right:1px solid var(--line);
+    padding:20px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    flex-shrink:0;
+  }
+  .brand{ display:flex;align-items:center;gap:8px; padding:6px 8px 18px; font-weight:800;font-size:16px; }
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--green);}
+  .nav-link{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px; border-radius:10px;
+    font-size:13px;font-weight:600; color:#6b746a;
+    cursor:pointer; text-decoration:none;
+  }
+  .nav-link.active{background:#eef4ec;color:#245c2c;}
+  .nav-link svg{width:16px;height:16px;flex-shrink:0;}
+
+  /* Main */
+  .main{
+    flex:1; padding:22px 28px;
+    display:flex; flex-direction:column; gap:18px;
+    min-width:0;
+  }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .topbar h1{font-size:20px;margin:0;font-weight:800;}
+  .topbar .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+
+  .toolbar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .search-box{
+    display:flex; align-items:center; gap:8px;
+    background:#fff; border:1px solid var(--line);
+    border-radius:12px; padding:9px 14px;
+    font-size:13px; min-width:220px; flex:1;
+  }
+  .search-box svg{width:15px;height:15px;color:#9aa39a;flex-shrink:0;}
+  .search-box input{
+    border:none; outline:none; font-size:13px; width:100%;
+    font-family:inherit; background:transparent;
+  }
+  .filter-tabs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .filter-tab{
+    font-size:12px;font-weight:600;
+    padding:8px 14px; border-radius:20px;
+    background:#fff; border:1px solid var(--line);
+    color:#6b746a; cursor:pointer;
+  }
+  .filter-tab.active{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .export-btn{
+    display:flex;align-items:center;gap:6px;
+    background:#fff; border:1px solid var(--line);
+    border-radius:12px; padding:9px 14px;
+    font-size:13px;font-weight:700; color:var(--ink);
+    cursor:pointer;
+  }
+  .export-btn svg{width:14px;height:14px;}
+
+  /* KPI row */
+  .kpi-row{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .kpi-card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius-md); padding:14px 16px; }
+  .kpi-card .label{font-size:11px;color:var(--muted);font-weight:600;}
+  .kpi-card .value{font-size:22px;font-weight:800;margin-top:4px;}
+  .kpi-card .trend{font-size:11px;margin-top:4px;font-weight:600;}
+  .trend.up{color:var(--red);}
+  .trend.down{color:var(--green);}
+
+  /* Table */
+  .table-panel{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-lg);
+    overflow:hidden;
+  }
+  .table-scroll{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{
+    text-align:left;
+    font-size:11px; text-transform:uppercase; letter-spacing:.03em;
+    color:var(--muted); font-weight:700;
+    padding:12px 16px;
+    background:#fafbf9;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+    white-space:nowrap;
+    user-select:none;
+  }
+  thead th .arrow{ opacity:.4; margin-left:4px; font-size:10px; }
+  thead th.sorted .arrow{ opacity:1; }
+  tbody tr{
+    border-bottom:1px solid #f1f3ef;
+    cursor:pointer;
+    transition:.12s;
+  }
+  tbody tr:hover{ background:#fafbf9; }
+  tbody tr:last-child{ border-bottom:none; }
+  td{ padding:12px 16px; vertical-align:middle; }
+
+  .prod-cell{ display:flex; align-items:center; gap:10px; }
+  .prod-thumb{ width:36px;height:36px;border-radius:9px;object-fit:cover;flex-shrink:0; }
+  .img-placeholder{ display:flex;align-items:center;justify-content:center; font-weight:800; font-size:13px; }
+  .prod-name{ font-weight:700; }
+  .prod-qty{ font-size:11px; color:var(--muted); }
+
+  .route-cell{ font-size:12px; color:#4a544a; }
+  .route-cell b{ color:var(--ink); }
+
+  .risk-chip{
+    font-size:10px;font-weight:700;
+    padding:3px 9px;border-radius:20px;
+    display:inline-flex;align-items:center;gap:4px;
+    white-space:nowrap;
+  }
+  .risk-chip .d{width:6px;height:6px;border-radius:50%;}
+  .risk-chip.high{background:var(--red-bg);color:var(--red);}
+  .risk-chip.high .d{background:var(--red);}
+  .risk-chip.med{background:var(--amber-bg);color:var(--amber);}
+  .risk-chip.med .d{background:var(--amber);}
+  .risk-chip.low{background:var(--green-bg);color:var(--green);}
+  .risk-chip.low .d{background:var(--green);}
+
+  .score-cell{ display:flex; align-items:center; gap:8px; }
+  .score-track{ width:60px; height:6px; border-radius:4px; background:#e6ebe3; overflow:hidden; flex-shrink:0; }
+  .score-fill{ height:100%; border-radius:4px; background:linear-gradient(90deg,#f0c94c,var(--red)); }
+  .score-num{ font-size:12px; font-weight:700; width:26px; }
+
+  .progress-cell{ display:flex; align-items:center; gap:8px; }
+  .progress-track{ width:70px; height:6px; border-radius:4px; background:#e6ebe3; overflow:hidden; flex-shrink:0; }
+  .progress-fill{ height:100%; border-radius:4px; background:var(--ink); }
+  .progress-num{ font-size:12px; font-weight:700; color:var(--muted); width:34px; }
+
+  .eta-cell{ font-size:12px; color:var(--muted); white-space:nowrap; }
+
+  .view-btn{
+    font-size:12px;font-weight:700;
+    background:#f4f6f3; border:none;
+    border-radius:8px; padding:7px 12px;
+    cursor:pointer; color:var(--ink);
+    white-space:nowrap;
+  }
+  .view-btn:hover{ background:#eaece7; }
+
+  .empty-state{ padding:40px; text-align:center; color:var(--muted); font-size:13px; }
+
+  /* Slide-over detail panel */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(20,25,20,0.35);
+    z-index:40;
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .overlay.open{ opacity:1; pointer-events:auto; }
+
+  .drawer{
+    position:fixed; top:0; right:0; bottom:0;
+    width:460px; max-width:92vw;
+    background:#fff;
+    z-index:50;
+    box-shadow:-20px 0 50px rgba(0,0,0,.15);
+    transform:translateX(100%);
+    transition:transform .3s ease;
+    overflow-y:auto;
+    padding:22px;
+  }
+  .drawer.open{ transform:translateX(0); }
+
+  .drawer-head{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .drawer-head h2{ margin:0; font-size:18px; font-weight:800; }
+  .drawer-head .id{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .close-btn{
+    width:32px;height:32px; border-radius:9px;
+    background:#f4f6f3; border:none;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer; color:var(--ink); flex-shrink:0;
+  }
+  .close-btn svg{width:15px;height:15px;}
+
+  .cargo-hero{
+    display:flex; gap:14px; align-items:center;
+    background:#f8faf7; border-radius:14px; padding:12px;
+    margin-bottom:14px;
+  }
+  .cargo-hero img, .cargo-hero-img{ width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0; }
+  .cargo-hero .name{ font-size:15px; font-weight:800; }
+  .cargo-hero .meta{ font-size:12px; color:var(--muted); margin-top:2px; }
+
+  .cargo-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .cargo-item{ background:#f8faf7; border-radius:12px; padding:11px 13px; }
+  .cargo-item .label{ font-size:11px; color:var(--muted); font-weight:600; }
+  .cargo-item .value{ font-size:14px; font-weight:700; margin-top:3px; }
+
+  .route-card{
+    background:linear-gradient(135deg,#f0f4ee,#e6ede2);
+    border-radius:16px; padding:30px 34px 22px;
+    margin-bottom:16px; position:relative;
+  }
+  .route-line{ position:relative; height:20px; margin:0 18px; }
+  .route-track{
+    position:absolute; top:50%; left:0; right:0; height:2px;
+    background:repeating-linear-gradient(90deg,#b7c2b3 0 6px, transparent 6px 12px);
+    transform:translateY(-50%); z-index:0;
+  }
+  .route-track-fill{
+    position:absolute; top:50%; left:0; height:2px;
+    background:#4a544a; transform:translateY(-50%); z-index:0;
+  }
+  .route-point{
+    position:absolute; top:50%; transform:translate(-50%,-50%); z-index:1;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    font-size:10px;font-weight:700;color:#4a544a;
+  }
+  .route-point .lbl{ position:absolute; top:18px; white-space:nowrap; left:50%; transform:translateX(-50%); }
+  .route-point:first-child .lbl{left:0;transform:none;}
+  .route-point:last-child .lbl{left:auto;right:0;transform:none;}
+  .route-dot{ width:12px;height:12px;border-radius:50%; background:#fff;border:3px solid #4a544a; }
+  .route-point.risk .route-dot{ border-color:var(--red); background:var(--red); box-shadow:0 0 0 5px rgba(224,85,79,.18); }
+  .route-point.risk{ color:var(--red); }
+  .route-mover{
+    position:absolute; top:50%; transform:translate(-50%,-50%); z-index:2;
+    width:22px;height:22px;border-radius:50%; background:#1b1f1c;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 10px rgba(0,0,0,.25);
+  }
+  .route-mover svg{width:12px;height:12px;color:#fff;}
+  .route-progress-label{ text-align:center; font-size:11px; color:#5b6a58; font-weight:600; margin-top:24px; }
+  .route-progress-label b{ color:var(--ink); }
+
+  .section-title{ font-size:13px;font-weight:700; margin:0 0 8px; }
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+
+  .weather-box{ background:#f8faf7; border-radius:14px; padding:12px 14px; }
+  .weather-item{ display:flex;align-items:center;justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid #ecefe9; }
+  .weather-item:last-child{ border-bottom:none; }
+  .weather-item .l{ display:flex;align-items:center;gap:6px; color:#5b6a58; font-weight:600; }
+  .weather-item .l svg{ width:13px;height:13px;color:#8a938b; }
+  .weather-item .v{ font-weight:700; }
+
+  .risk-box{ background:#f8faf7; border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; justify-content:center; gap:8px; }
+  .risk-score-num{ font-size:24px; font-weight:800; }
+  .risk-score-num span{ font-size:12px; color:var(--muted); font-weight:600; }
+  .risk-track{ height:9px; border-radius:6px; background:#e6ebe3; overflow:hidden; }
+  .risk-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg,#f0c94c,var(--red)); }
+  .risk-note{ font-size:11px; color:var(--muted); }
+
+  .ai-box{
+    background:var(--red-bg); border:1px solid #f6d3d0;
+    border-radius:14px; padding:13px 14px;
+    display:flex; gap:9px; margin-bottom:16px;
+  }
+  .ai-box svg{ width:16px;height:16px;color:var(--red);flex-shrink:0;margin-top:1px; }
+  .ai-box .txt{ font-size:12.5px; line-height:1.5; color:#5c2c29; }
+  .ai-box .txt b{ color:#3d1d1b; }
+
+  .action-row{ display:flex; gap:8px; }
+  .btn{
+    flex:1; display:flex;align-items:center;justify-content:center;gap:7px;
+    padding:11px 14px; border-radius:12px;
+    font-size:13px;font-weight:700; cursor:pointer; border:none;
+  }
+  .btn-primary{ background:var(--ink); color:#fff; }
+  .btn-secondary{ background:#f4f6f3; color:var(--ink); }
+  .btn svg{ width:14px;height:14px; }
+
+  @media (max-width:900px){
+    
+    .kpi-row{ grid-template-columns:1fr 1fr; }
+    table{ font-size:12px; }
+    thead th:nth-child(4), td:nth-child(4){ display:none; } /* hide route col on small screens */
+  }
+
+  /* ============================================================
+     MOBILE NAVIGATION
+     Below 900px the fixed sidebar becomes a slide-in drawer,
+     opened by a hamburger button, instead of just disappearing
+     with no way to navigate between pages.
+     ============================================================ */
+  .mobile-topbar{
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    background:#fff;
+    border-bottom:1px solid var(--line);
+    padding:12px 16px;
+    position:sticky;
+    top:0;
+    z-index:35;
+  }
+  .mobile-topbar .brand{ padding:0; }
+  .hamburger-btn{
+    width:38px;height:38px;
+    border-radius:10px;
+    background:#f4f6f3;
+    border:none;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    color:var(--ink);
+    flex-shrink:0;
+  }
+  .hamburger-btn svg{ width:18px;height:18px; }
+
+  .sidebar-overlay{
+    position:fixed; inset:0;
+    background:rgba(20,25,20,0.4);
+    z-index:59;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s ease;
+  }
+  .sidebar-overlay.open{ opacity:1; pointer-events:auto; }
+
+  @media (max-width:900px){
+    .mobile-topbar{ display:flex; }
+    .sidebar{
+      position:fixed;
+      top:0; bottom:0; left:0;
+      z-index:60;
+      transform:translateX(-100%);
+      transition:transform .25s ease;
+      box-shadow:10px 0 30px rgba(0,0,0,.12);
+    }
+    .sidebar.open{ transform:translateX(0); }
+  }
+
+
+  @media (max-width:480px){
+    .kpi-row{ grid-template-columns:1fr 1fr; gap:10px; }
+    .kpi-card{ padding:12px; }
+    .kpi-card .value{ font-size:18px; }
+    .topbar{ flex-direction:column; align-items:flex-start; gap:10px; }
+    .main{ padding:16px; gap:14px; }
+  }
+
+  .route-line.has-raised-mover{ margin-top:22px; }
+  .route-mover.raised{
+    top:-16px;
+    transform:translate(-50%, 0);
+  }
+  .route-mover.raised::before{
+    content:"";
+    position:absolute;
+    bottom:-9px;
+    left:50%;
+    transform:translateX(-50%);
+    width:2px;height:9px;
+    background:#1b1f1c;
+    opacity:.45;
+  }
+</style>
+</head>
+<body>
+
+<div class="mobile-topbar">
+  <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+  <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebarNav">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+  </button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebarNav">
+    <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+    <a class="nav-link" href="shipment-risk-dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-link active" href="shipments.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+      Shipments
+    </a>
+    <a class="nav-link" href="routes.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5-2V6l5 2m0 12l6-2m-6 2V8m6 10l5 2V8l-5-2m0 14V6m0 2L9 6"/></svg>
+      Routes
+    </a>
+    <a class="nav-link" href="weather.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4 2.2A4 4 0 0 0 6 19h11.5z"/></svg>
+      Weather
+    </a>
+     <a class="nav-link active" href="dealer-suggestion.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.2-9.5-9.6C.7 7.9 2.3 4 6 4c2 0 3.4 1.1 4 2.2C10.6 5.1 12 4 14 4c3.7 0 5.3 3.9 3.5 7.4C19 15.8 12 21 12 21z"/></svg>
+      Dealer Match
+    </a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1>All Shipments</h1>
+        <div class="sub" id="resultCount">Loading shipments…</div>
+      </div>
+      <button class="export-btn" onclick="alert('Exporting shipments to CSV...')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+        Export CSV
+      </button>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card"><div class="label">Total Shipments</div><div class="value" id="kpiTotal">-</div></div>
+      <div class="kpi-card"><div class="label">High Risk</div><div class="value" id="kpiHigh">-</div><div class="trend up">Needs attention</div></div>
+      <div class="kpi-card"><div class="label">Avg. Risk Score</div><div class="value" id="kpiAvg">-</div></div>
+      <div class="kpi-card"><div class="label">Avg. Progress</div><div class="value" id="kpiProgress">-</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input id="searchInput" placeholder="Search by ID, product, origin, or destination..." />
+      </div>
+      <div class="filter-tabs" id="filterTabs">
+        <div class="filter-tab active" data-filter="all">All</div>
+        <div class="filter-tab" data-filter="high">High Risk</div>
+        <div class="filter-tab" data-filter="med">Medium Risk</div>
+        <div class="filter-tab" data-filter="low">Low Risk</div>
+      </div>
+    </div>
+
+    <div class="table-panel">
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="id">Shipment <span class="arrow">↕</span></th>
+            <th data-sort="product">Product <span class="arrow">↕</span></th>
+            <th data-sort="qty">Qty <span class="arrow">↕</span></th>
+            <th data-sort="route">Route</th>
+            <th data-sort="risk">Risk <span class="arrow">↕</span></th>
+            <th data-sort="score">Score <span class="arrow">↕</span></th>
+            <th data-sort="progress">Progress <span class="arrow">↕</span></th>
+            <th data-sort="eta">ETA</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+      </div>
+      <div class="empty-state" id="emptyState" style="display:none;">No shipments match your search or filter.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Slide-over detail panel -->
+<div class="overlay" id="overlay"></div>
+<div class="drawer" id="drawer"></div>
+
+<script>
+  // ============================================================
+  // PRODUCT IMAGES & LINKS
+  // Tomatoes uses a real local photo; others are Cloudinary
+  // placeholders you can replace with your own uploaded URLs.
+  // ============================================================
+  const productImages = {
+    Tomatoes: "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/tomatoes.jpg",
+    Onions:   "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Onion_garden.jpg",
+    Rice:     "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Rice-Parts.jpg",
+    Bananas:  "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/banana.jpeg",
+    Carrots:  "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Carrot_large.webp",
+    Potatoes: "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Potatto.png"
+  };
+  const productColors = {
+    Tomatoes: "#e0554f", Onions: "#c98a4b", Rice: "#d9c67a",
+    Bananas: "#e0c23f", Carrots: "#e08a3f", Potatoes: "#b98f5e"
+  };
+  const productLinks = {
+    Tomatoes: "https://www.britishtomatoes.co.uk/tomato-facts"
+  };
+
+  function placeholderHtml(product, className){
+    const color = productColors[product] || "#8a938b";
+    return `<div class="${className} img-placeholder" style="background:${color}22;color:${color};">${(product || "?")[0]}</div>`;
+  }
+  function productImageTag(product, className){
+    const url = productImages[product];
+    const looksReal = url && !url.includes("YOUR_CLOUD_NAME");
+    const link = productLinks[product];
+
+    const imgHtml = looksReal
+      ? `<img class="${className}" src="${url}" alt="${product}"
+           onerror="window.handleProductImgError(this, '${product}', '${className}')" />`
+      : placeholderHtml(product, className);
+  
+    if (link) {
+      return `<a href="${link}" target="_blank" rel="noopener noreferrer" title="Learn more about ${product}">${imgHtml}</a>`;
+    }
+    return imgHtml;
+  }
+
+  // ============================================================
+  // SHIPMENT DATA
+  // Replace this array with a fetch() to your real API, e.g.:
+  //   const shipments = await fetch('/api/shipments').then(r => r.json());
+  // Every field used below (weather, stops, ai, etc.) should be
+  // present on each record from your backend the same way.
+  // ============================================================
+  const shipments = [
+    {
+      id: "FR001", risk: "high", score: 82,
+      product: "Tomatoes", qty: "500 kg",
+      from: "Kattur", to: "Chennai",
+      weather: { rain: 82, humidity: 91, temp: 29 },
+      ai: "Heavy rainfall expected along NH-45 in the next 3 hours. Tomatoes are highly perishable under humid conditions — recommend rerouting via the coastal bypass or delaying dispatch by 4 hours.",
+      eta: "4h 20m remaining",
+      progress: 46,
+      stops: [
+        { name: "Farm — Kattur", pos: 0 },
+        { name: "Risk Zone", pos: 50, risk: true },
+        { name: "Dest. — Chennai", pos: 100 }
+      ]
+    },
+    {
+      id: "FR002", risk: "med", score: 54,
+      product: "Onions", qty: "1,200 kg",
+      from: "Erode", to: "Coimbatore",
+      weather: { rain: 40, humidity: 68, temp: 31 },
+      ai: "Moderate humidity may accelerate spoilage in enclosed transport. Ensure ventilation is active; no route change needed.",
+      eta: "2h 10m remaining",
+      progress: 62,
+      stops: [
+        { name: "Farm — Erode", pos: 0 },
+        { name: "Checkpoint — Tirupur", pos: 45 },
+        { name: "Dest. — Coimbatore", pos: 100 }
+      ]
+    },
+    {
+      id: "FR003", risk: "low", score: 21,
+      product: "Rice", qty: "2,000 kg",
+      from: "Thanjavur", to: "Madurai",
+      weather: { rain: 8, humidity: 45, temp: 33 },
+      ai: "Conditions are favorable across the entire route. No action required — proceed as scheduled.",
+      eta: "5h 45m remaining",
+      progress: 18,
+      stops: [
+        { name: "Farm — Thanjavur", pos: 0 },
+        { name: "Dest. — Madurai", pos: 100 }
+      ]
+    },
+    {
+      id: "FR004", risk: "high", score: 76,
+      product: "Bananas", qty: "800 kg",
+      from: "Trichy", to: "Salem",
+      weather: { rain: 70, humidity: 85, temp: 28 },
+      ai: "Storm cell forming near the midpoint of this route. Bananas are sensitive to temperature swings — recommend cold-chain check and alternate route via SH-17.",
+      eta: "1h 55m remaining",
+      progress: 74,
+      stops: [
+        { name: "Farm — Trichy", pos: 0 },
+        { name: "Namakkal", pos: 35 },
+        { name: "Risk Zone", pos: 68, risk: true },
+        { name: "Dest. — Salem", pos: 100 }
+      ]
+    },
+    {
+      id: "FR005", risk: "med", score: 48,
+      product: "Carrots", qty: "600 kg",
+      from: "Ooty", to: "Coimbatore",
+      weather: { rain: 35, humidity: 60, temp: 22 },
+      ai: "Light rain likely but temperature is favorable for root vegetables. Monitor conditions; no immediate action needed.",
+      eta: "3h 05m remaining",
+      progress: 30,
+      stops: [
+        { name: "Farm — Ooty", pos: 0 },
+        { name: "Mettupalayam", pos: 55 },
+        { name: "Dest. — Coimbatore", pos: 100 }
+      ]
+    },
+    {
+      id: "FR006", risk: "low", score: 15,
+      product: "Potatoes", qty: "1,500 kg",
+      from: "Kodaikanal", to: "Dindigul",
+      weather: { rain: 5, humidity: 40, temp: 24 },
+      ai: "Clear skies and stable temperature across the route. Shipment on track with no risk factors detected.",
+      eta: "2h 30m remaining",
+      progress: 88,
+      stops: [
+        { name: "Farm — Kodaikanal", pos: 0 },
+        { name: "Dest. — Dindigul", pos: 100 }
+      ]
+    },
+    {
+      id: "FR007", risk: "high", score: 88,
+      product: "Tomatoes", qty: "950 kg",
+      from: "Vellore", to: "Chennai",
+      weather: { rain: 90, humidity: 94, temp: 27 },
+      ai: "Severe thunderstorm warning active along the entire route. Strongly recommend holding this shipment until conditions clear — spoilage risk is critical.",
+      eta: "6h 10m remaining",
+      progress: 12,
+      stops: [
+        { name: "Farm — Vellore", pos: 0 },
+        { name: "Risk Zone", pos: 40, risk: true },
+        { name: "Dest. — Chennai", pos: 100 }
+      ]
+    },
+    {
+      id: "FR008", risk: "low", score: 9,
+      product: "Rice", qty: "3,200 kg",
+      from: "Thanjavur", to: "Trichy",
+      weather: { rain: 2, humidity: 38, temp: 32 },
+      ai: "Ideal transport conditions throughout. No monitoring required beyond standard checks.",
+      eta: "1h 20m remaining",
+      progress: 95,
+      stops: [
+        { name: "Farm — Thanjavur", pos: 0 },
+        { name: "Dest. — Trichy", pos: 100 }
+      ]
+    }
+  ];
+
+  let currentFilter = "all";
+  let searchTerm = "";
+  let sortKey = "score";
+  let sortDir = "desc";
+
+  function riskLabel(r){
+    return r === "high" ? "High Risk" : r === "med" ? "Medium Risk" : "Low Risk";
+  }
+
+  function getFiltered(){
+    let list = shipments.filter(s => currentFilter === "all" || s.risk === currentFilter);
+    if (searchTerm) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(s =>
+        s.id.toLowerCase().includes(q) ||
+        s.product.toLowerCase().includes(q) ||
+        s.from.toLowerCase().includes(q) ||
+        s.to.toLowerCase().includes(q)
+      );
+    }
+    list = [...list].sort((a, b) => {
+      let av, bv;
+      switch (sortKey) {
+        case "id": av = a.id; bv = b.id; break;
+        case "product": av = a.product; bv = b.product; break;
+        case "qty": av = parseFloat(a.qty); bv = parseFloat(b.qty); break;
+        case "route": av = a.from; bv = b.from; break;
+        case "risk": {
+          const order = { high: 3, med: 2, low: 1 };
+          av = order[a.risk]; bv = order[b.risk]; break;
+        }
+        case "score": av = a.score; bv = b.score; break;
+        case "progress": av = a.progress; bv = b.progress; break;
+        case "eta": av = a.eta; bv = b.eta; break;
+        default: av = a.score; bv = b.score;
+      }
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }
+
+  function renderKpis(){
+    const total = shipments.length;
+    const high = shipments.filter(s => s.risk === "high").length;
+    const avgScore = Math.round(shipments.reduce((sum, s) => sum + s.score, 0) / total);
+    const avgProgress = Math.round(shipments.reduce((sum, s) => sum + s.progress, 0) / total);
+    document.getElementById("kpiTotal").textContent = total;
+    document.getElementById("kpiHigh").textContent = high;
+    document.getElementById("kpiAvg").textContent = avgScore;
+    document.getElementById("kpiProgress").textContent = avgProgress + "%";
+  }
+
+  function renderTable(){
+    const list = getFiltered();
+    const body = document.getElementById("tableBody");
+    const empty = document.getElementById("emptyState");
+    document.getElementById("resultCount").textContent =
+      `Showing ${list.length} of ${shipments.length} shipments`;
+
+    if (list.length === 0) {
+      body.innerHTML = "";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+
+    body.innerHTML = list.map(s => `
+      <tr data-id="${s.id}">
+        <td><b>#${s.id}</b></td>
+        <td>
+          <div class="prod-cell">
+            ${productImageTag(s.product, "prod-thumb")}
+            <div>
+              <div class="prod-name">${s.product}</div>
+            </div>
+          </div>
+        </td>
+        <td class="prod-qty">${s.qty}</td>
+        <td class="route-cell"><b>${s.from}</b> → <b>${s.to}</b></td>
+        <td><span class="risk-chip ${s.risk}"><span class="d"></span>${riskLabel(s.risk)}</span></td>
+        <td>
+          <div class="score-cell">
+            <div class="score-track"><div class="score-fill" style="width:${s.score}%"></div></div>
+            <div class="score-num">${s.score}</div>
+          </div>
+        </td>
+        <td>
+          <div class="progress-cell">
+            <div class="progress-track"><div class="progress-fill" style="width:${s.progress}%"></div></div>
+            <div class="progress-num">${s.progress}%</div>
+          </div>
+        </td>
+        <td class="eta-cell">${s.eta}</td>
+        <td><button class="view-btn" data-id="${s.id}">View Details</button></td>
+      </tr>
+    `).join("");
+
+    body.querySelectorAll("tr").forEach(row => {
+      row.addEventListener("click", (e) => {
+        openDrawer(row.dataset.id);
+      });
+    });
+  }
+
+  function renderRoute(s){
+    const stopsHtml = s.stops.map(st => `
+      <div class="route-point ${st.risk ? 'risk' : ''}" style="left:${st.pos}%;">
+        <div class="route-dot"></div>
+        <div class="lbl">${st.name}</div>
+      </div>
+    `).join("");
+
+    // Lift the mover above the track when it lands close to a stop —
+    // otherwise the two dots stack on top of each other and become
+    // unreadable (this is the overlap bug).
+    const nearestStopDist = Math.min(...s.stops.map(st => Math.abs(st.pos - s.progress)));
+    const isNearStop = nearestStopDist < 6;
+
+    return `
+      <div class="route-line ${isNearStop ? 'has-raised-mover' : ''}">
+        <div class="route-track"></div>
+        <div class="route-track-fill" style="width:${s.progress}%;"></div>
+        ${stopsHtml}
+        <div class="route-mover ${isNearStop ? 'raised' : ''}" style="left:${s.progress}%;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 13l3-7h9l3 5h3v6h-2M3 13v4h2M3 13h13M8 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="route-progress-label"><b>${s.progress}%</b> of route completed</div>
+    `;
+  }
+
+  function openDrawer(id){
+    const s = shipments.find(x => x.id === id);
+    if (!s) return;
+    const drawer = document.getElementById("drawer");
+    const overlay = document.getElementById("overlay");
+
+    drawer.innerHTML = `
+      <div class="drawer-head">
+        <div>
+          <h2>Shipment #${s.id}</h2>
+          <div class="id">${s.product} · ${s.eta}</div>
+        </div>
+        <button class="close-btn" id="closeDrawerBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <span class="risk-chip ${s.risk}" style="font-size:11px;padding:5px 12px;margin-bottom:14px;display:inline-flex;">
+        <span class="d"></span>${riskLabel(s.risk)}
+      </span>
+
+      <div class="cargo-hero">
+        ${productImageTag(s.product, "cargo-hero-img")}
+        <div>
+          <div class="name">${s.product}</div>
+          <div class="meta">${s.qty} in transit</div>
+        </div>
+      </div>
+
+      <div class="cargo-grid">
+        <div class="cargo-item"><div class="label">From</div><div class="value">${s.from}</div></div>
+        <div class="cargo-item"><div class="label">To</div><div class="value">${s.to}</div></div>
+      </div>
+
+      <div class="route-card">${renderRoute(s)}</div>
+
+      <div class="two-col">
+        <div>
+          <div class="section-title">Weather</div>
+          <div class="weather-box">
+            <div class="weather-item"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2s6 7 6 12a6 6 0 0 1-12 0c0-5 6-12 6-12z"/></svg>Rain</div><div class="v">${s.weather.rain}%</div></div>
+            <div class="weather-item"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10M12 22a4 4 0 0 0 2-7.5V4a2 2 0 0 0-4 0v10.5A4 4 0 0 0 12 22z"/></svg>Humidity</div><div class="v">${s.weather.humidity}%</div></div>
+            <div class="weather-item"><div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg>Temp</div><div class="v">${s.weather.temp}°C</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="section-title">Risk Score</div>
+          <div class="risk-box">
+            <div class="risk-score-num">${s.score}<span>/100</span></div>
+            <div class="risk-track"><div class="risk-fill" style="width:${s.score}%"></div></div>
+            <div class="risk-note">${s.score >= 70 ? "Immediate action recommended" : s.score >= 40 ? "Monitor closely" : "Low concern"}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div class="txt"><b>AI Recommendation:</b> ${s.ai}</div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn btn-primary" onclick="alert('Opening alternative route options for #${s.id}...')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5-2V6l5 2m0 12l6-2m-6 2V8m6 10l5 2V8l-5-2m0 14V6m0 2L9 6"/></svg>
+          Alternative Route
+        </button>
+        <button class="btn btn-secondary" onclick="alert('Notifying buyer for #${s.id}...')">Notify Buyer</button>
+      </div>
+    `;
+
+    document.getElementById("closeDrawerBtn").addEventListener("click", closeDrawer);
+    drawer.classList.add("open");
+    overlay.classList.add("open");
+  }
+
+  function closeDrawer(){
+    document.getElementById("drawer").classList.remove("open");
+    document.getElementById("overlay").classList.remove("open");
+  }
+  document.getElementById("overlay").addEventListener("click", closeDrawer);
+
+  // Filters
+  document.getElementById("filterTabs").addEventListener("click", (e) => {
+    const tab = e.target.closest(".filter-tab");
+    if (!tab) return;
+    document.querySelectorAll(".filter-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentFilter = tab.dataset.filter;
+    renderTable();
+  });
+
+  // Search
+  document.getElementById("searchInput").addEventListener("input", (e) => {
+    searchTerm = e.target.value.trim();
+    renderTable();
+  });
+
+  // Sorting
+  document.querySelectorAll("thead th[data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (sortKey === key) {
+        sortDir = sortDir === "asc" ? "desc" : "asc";
+      } else {
+        sortKey = key;
+        sortDir = "desc";
+      }
+      document.querySelectorAll("thead th").forEach(t => t.classList.remove("sorted"));
+      th.classList.add("sorted");
+      renderTable();
+    });
+  });
+
+  renderKpis();
+  renderTable();
+
+  // Simulated live progress updates every few seconds, same as the
+  // main dashboard — replace with real polling against your API.
+  setInterval(() => {
+    shipments.forEach(s => {
+      if (s.progress < 100) {
+        s.progress = Math.min(100, Math.round((s.progress + Math.random() * 2 + 0.3) * 10) / 10);
+      }
+    });
+    renderTable();
+    renderKpis();
+  }, 5000);
+
+  // ---- Mobile nav: hamburger opens/closes the slide-in sidebar ----
+  (function(){
+    const btn = document.getElementById("hamburgerBtn");
+    const sidebar = document.getElementById("sidebarNav");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (!btn || !sidebar || !overlay) return;
+
+    function openNav(){
+      sidebar.classList.add("open");
+      overlay.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+    }
+    function closeNav(){
+      sidebar.classList.remove("open");
+      overlay.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+    btn.addEventListener("click", () => {
+      sidebar.classList.contains("open") ? closeNav() : openNav();
+    });
+    overlay.addEventListener("click", closeNav);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
+    // Close the drawer after tapping a nav link, so the next page
+    // doesn't load with the menu still open.
+    sidebar.querySelectorAll("a.nav-link").forEach(link => {
+      link.addEventListener("click", closeNav);
+    });
+  })();
+
+</script>
+
+</body>
+</html>

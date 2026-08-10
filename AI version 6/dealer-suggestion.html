@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dealer Match — FoodRoute AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dealer-sug.css">
+</head>
+<body>
+
+<div class="mobile-topbar">
+  <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+  <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebarNav">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+  </button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebarNav">
+    <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+    <a class="nav-link active" href="shipment-risk-dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-link" href="shipments.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+      Shipments
+    </a>
+    <a class="nav-link" href="routes.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5-2V6l5 2m0 12l6-2m-6 2V8m6 10l5 2V8l-5-2m0 14V6m0 2L9 6"/></svg>
+      Routes
+    </a>
+    <a class="nav-link" href="weather.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4 2.2A4 4 0 0 0 6 19h11.5z"/></svg>
+      Weather
+    </a>
+    <a class="nav-link" href="dealer-suggestion.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.2-9.5-9.6C.7 7.9 2.3 4 6 4c2 0 3.4 1.1 4 2.2C10.6 5.1 12 4 14 4c3.7 0 5.3 3.9 3.5 7.4C19 15.8 12 21 12 21z"/></svg>
+      Dealer Match
+    </a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1>Dealer Match</h1>
+        <div class="sub">AI-ranked wholesale dealers for your product, destination and vehicle</div>
+      </div>
+      <div class="live-badge"><span class="pulse"></span>Live</div>
+    </div>
+
+    <div class="df-card">
+      <h2>Find the best dealer</h2>
+      <div class="df-sub">Pick a product and where you're delivering from — we'll rank dealers by distance your vehicle can realistically cover, current price, and demand.</div>
+
+      <form class="df-form" id="dealerForm">
+        <div class="df-field">
+          <label for="product">Product</label>
+          <select id="product" required>
+            <option value="Tomato">Tomato</option>
+            <option value="Fish">Fish</option>
+            <option value="Milk">Milk</option>
+            <option value="Flowers">Flowers</option>
+            <option value="Vegetables">Vegetables (mixed)</option>
+          </select>
+        </div>
+
+        <div class="df-field">
+          <label for="destination">Current location</label>
+          <input id="destination" type="text" placeholder="e.g. Coimbatore" required />
+        </div>
+
+        <div class="df-field">
+          <label for="vehicle">Vehicle</label>
+          <select id="vehicle" required>
+            <option value="two_wheeler">Two-wheeler (~15 km)</option>
+            <option value="three_wheeler">Three-wheeler / auto (~30 km)</option>
+            <option value="four_wheeler">Four-wheeler / van (~100 km)</option>
+            <option value="mini_truck">Mini truck (~250 km)</option>
+            <option value="large_truck">Large truck (unlimited)</option>
+          </select>
+        </div>
+
+        <button type="submit" class="df-submit" id="submitBtn">Find Best Dealers</button>
+      </form>
+      <div class="df-note" id="statusNote"></div>
+    </div>
+
+    <div id="resultsArea"></div>
+
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // Point this at your deployed FastAPI backend, e.g.
+  // "https://foodroute-api.onrender.com". Leave as "" to auto-use
+  // http://localhost:8000 while developing locally.
+  // ============================================================
+  const BACKEND_URL = "http://localhost:8000";
+
+  const form = document.getElementById("dealerForm");
+  const submitBtn = document.getElementById("submitBtn");
+  const statusNote = document.getElementById("statusNote");
+  const resultsArea = document.getElementById("resultsArea");
+
+  function vehicleLabel(v){
+    return {
+      two_wheeler: "Two-wheeler",
+      three_wheeler: "Three-wheeler",
+      four_wheeler: "Four-wheeler",
+      mini_truck: "Mini truck",
+      large_truck: "Large truck"
+    }[v] || v;
+  }
+
+  function renderLoading(){
+    resultsArea.innerHTML = `<div class="df-card"><div class="df-loading">Ranking dealers and asking the AI for a recommendation…</div></div>`;
+  }
+
+  function renderError(message){
+    resultsArea.innerHTML = `
+      <div class="df-card">
+        <div class="df-empty">
+          Couldn't reach the backend (${message}).<br/>
+          Showing demo results instead — start the FastAPI backend and set <code>BACKEND_URL</code> at the top of this page's script to use live data.
+        </div>
+      </div>`;
+  }
+
+  function renderResults(data){
+    const { ai_summary, dealers } = data;
+
+    const summaryHtml = ai_summary ? `
+      <div class="df-summary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div><b>AI recommendation:</b> ${ai_summary}</div>
+      </div>` : "";
+
+    if (!dealers || dealers.length === 0) {
+      resultsArea.innerHTML = `<div class="df-card">${summaryHtml}<div class="df-empty">No dealers found within range of your vehicle. Try a larger vehicle or a different location.</div></div>`;
+      return;
+    }
+
+    const rows = dealers.map((d, i) => `
+      <div class="df-dealer ${i === 0 ? 'best' : ''}">
+        <div class="df-rank">${i + 1}</div>
+        <div>
+          <div class="name">${d.name}</div>
+          <div class="meta">${d.city} · ${d.distance_km} km away · ${d.product}</div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="v">₹${d.price_per_kg}</div><div class="l">per kg</div></div>
+          <div class="stat"><div class="v">${d.rating}★</div><div class="l">rating</div></div>
+          <div class="stat"><div class="v">${d.eta_minutes}m</div><div class="l">ETA</div></div>
+        </div>
+      </div>
+    `).join("");
+
+    resultsArea.innerHTML = `
+      <div class="df-card">
+        ${summaryHtml}
+        <h2>Suggested dealers</h2>
+        <div class="df-sub">Ranked for a ${vehicleLabel(document.getElementById("vehicle").value)} trip</div>
+        <div class="df-results">${rows}</div>
+      </div>`;
+  }
+
+  // Demo data shown if the backend isn't reachable yet, so the page
+  // is still useful to look at before the API is deployed.
+  function demoData(product, destination, vehicle){
+    const base = [
+      { name: "Green Valley Wholesale", city: destination || "Local Market", distance_km: 4.2, price_per_kg: 28, rating: 4.6, eta_minutes: 12 },
+      { name: "Sunrise Traders", city: destination || "Local Market", distance_km: 9.8, price_per_kg: 26, rating: 4.3, eta_minutes: 22 },
+      { name: "Coastal Fresh Exchange", city: destination || "Local Market", distance_km: 18.5, price_per_kg: 24, rating: 4.1, eta_minutes: 34 }
+    ];
+    return {
+      ai_summary: `Demo data — start the FastAPI backend (no API keys needed) for live, real-distance rankings of ${product} dealers near ${destination || "your location"} for a ${vehicleLabel(vehicle)}.`,
+      dealers: base.map(d => ({ ...d, product }))
+    };
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const product = document.getElementById("product").value;
+    const destination = document.getElementById("destination").value.trim();
+    const vehicle = document.getElementById("vehicle").value;
+
+    if (!destination) {
+      statusNote.textContent = "Please enter your current location.";
+      statusNote.classList.add("warn");
+      return;
+    }
+    statusNote.textContent = "";
+    statusNote.classList.remove("warn");
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Finding dealers…";
+    renderLoading();
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/suggest-dealers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ product, destination, vehicle_type: vehicle })
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      console.error("Dealer suggestion request failed:", err);
+      renderError(err.message);
+      renderResults(demoData(product, destination, vehicle));
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Find Best Dealers";
+    }
+  });
+
+  // ---- Mobile nav: hamburger opens/closes the slide-in sidebar ----
+  (function(){
+    const btn = document.getElementById("hamburgerBtn");
+    const sidebar = document.getElementById("sidebarNav");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (!btn || !sidebar || !overlay) return;
+
+    function openNav(){
+      sidebar.classList.add("open");
+      overlay.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+    }
+    function closeNav(){
+      sidebar.classList.remove("open");
+      overlay.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+    btn.addEventListener("click", () => {
+      sidebar.classList.contains("open") ? closeNav() : openNav();
+    });
+    overlay.addEventListener("click", closeNav);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
+    sidebar.querySelectorAll("a.nav-link").forEach(link => {
+      link.addEventListener("click", closeNav);
+    });
+  })();
+</script>
+
+</body>
+</html>

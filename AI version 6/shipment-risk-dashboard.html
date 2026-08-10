@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shipment Risk Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="mobile-topbar">
+  <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+  <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="sidebarNav">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+  </button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebarNav">
+    <div class="brand"><span class="dot"></span>FoodRoute AI</div>
+    <a class="nav-link active" href="shipment-risk-dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      Dashboard
+    </a>
+    <a class="nav-link" href="shipments.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+      Shipments
+    </a>
+    <a class="nav-link" href="routes.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5-2V6l5 2m0 12l6-2m-6 2V8m6 10l5 2V8l-5-2m0 14V6m0 2L9 6"/></svg>
+      Routes
+    </a>
+    <a class="nav-link" href="weather.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4 2.2A4 4 0 0 0 6 19h11.5z"/></svg>
+      Weather
+    </a>
+    <a class="nav-link" href="dealer-suggestion.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.2-9.5-9.6C.7 7.9 2.3 4 6 4c2 0 3.4 1.1 4 2.2C10.6 5.1 12 4 14 4c3.7 0 5.3 3.9 3.5 7.4C19 15.8 12 21 12 21z"/></svg>
+      Dealer Match
+    </a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h1>Shipment Risk Monitor</h1>
+        <div class="sub">Live tracking across active produce shipments</div>
+      </div>
+      <div class="live-badge"><span class="pulse"></span>Live</div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="label">Active Shipments</div>
+        <div class="value">18</div>
+        <div class="trend down">+3 today</div>
+      </div>
+      <div class="kpi-card">
+        <div class="label">High Risk</div>
+        <div class="value">4</div>
+        <div class="trend up">+2 vs yesterday</div>
+      </div>
+      <div class="kpi-card">
+        <div class="label">Avg. Risk Score</div>
+        <div class="value">47</div>
+        <div class="trend up">+6 pts</div>
+      </div>
+      <div class="kpi-card">
+        <div class="label">On-Time Rate</div>
+        <div class="value">91%</div>
+        <div class="trend down">-2% this week</div>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Shipment list -->
+      <div class="list-panel">
+        <div class="head">
+          Shipments <span style="color:#a3aca1;font-weight:600;">18 total</span>
+        </div>
+        <div class="filter-tabs">
+          <div class="filter-tab active" data-filter="all">All</div>
+          <div class="filter-tab" data-filter="high">High</div>
+          <div class="filter-tab" data-filter="med">Medium</div>
+          <div class="filter-tab" data-filter="low">Low</div>
+        </div>
+        <div class="ship-list" id="shipList"></div>
+      </div>
+
+      <!-- Detail panel -->
+      <div class="detail-panel" id="detailPanel"></div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // PRODUCT IMAGES — paste your own hosted URLs here (Cloudinary,
+  // ImgBB, S3, etc). Each shipment's "product" field looks up its
+  // photo from this object by exact name match.
+  //
+  // If a URL is missing or broken, a colored placeholder with the
+  // product's initial is shown instead, so the layout never breaks.
+  // ============================================================
+  const productImages = {
+    Tomatoes: "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/tomatoes.jpg",
+    Onions:   "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Onion_garden.jpg",
+    Rice:     "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Rice-Parts.jpg",
+    Bananas:  "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/banana.jpeg",
+    Carrots:  "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Carrot_large.webp",
+    Potatoes: "https://raw.githubusercontent.com/Gowthami512/GDG-Hackathon/main/images/Potatto.png"
+  };
+
+  // Products that should link out to a source/reference page when clicked.
+  // Add more entries here the same way to link other product photos.
+  const productLinks = {
+    Tomatoes: "https://www.britishtomatoes.co.uk/tomato-facts"
+  };
+
+  // Fallback colors for the placeholder shown when a photo URL is
+  // missing/broken, so you always see *something* meaningful.
+  const productColors = {
+    Tomatoes: "#e0554f", Onions: "#c98a4b", Rice: "#d9c67a",
+    Bananas: "#e0c23f", Carrots: "#e08a3f", Potatoes: "#b98f5e"
+  };
+
+  // Returns an <img> (optionally wrapped in a link) if a real photo is
+  // set, otherwise a colored initial-letter placeholder in the same spot.
+  function productImageTag(product, className){
+    const url = productImages[product];
+    const looksReal = url && !url.includes("YOUR_CLOUD_NAME");
+    const link = productLinks[product];
+
+    const imgHtml = looksReal
+      ? `<img class="${className}" src="${url}" alt="${product}"
+           onerror="window.handleProductImgError(this, '${product}', '${className}')" />`
+      : placeholderHtml(product, className);
+
+
+    if (link) {
+      return `<a href="${link}" target="_blank" rel="noopener noreferrer" title="Learn more about ${product}">${imgHtml}</a>`;
+    }
+    return imgHtml;
+  }
+  function placeholderHtml(product, className){
+    const color = productColors[product] || "#8a938b";
+    return `<div class="${className} img-placeholder" style="background:${color}22;color:${color};">${(product || "?")[0]}</div>`;
+  }
+
+  // Each shipment now carries a full multi-stop route.
+  // stops[]: ordered list of waypoints, each with a "pos" (0-100, its position along the line).
+  // progress: current live position of the vehicle along that same 0-100 scale.
+  const shipments = [
+    {
+      id: "FR001", risk: "high", score: 82,
+      product: "Tomatoes", qty: "500 kg",
+      from: "Kattur", to: "Chennai",
+      weather: { rain: 82, humidity: 91, temp: 29 },
+      ai: "Heavy rainfall expected along NH-45 in the next 3 hours. Tomatoes are highly perishable under humid conditions — recommend rerouting via the coastal bypass or delaying dispatch by 4 hours.",
+      eta: "4h 20m remaining",
+      progress: 46,
+      stops: [
+        { name: "Farm — Kattur", pos: 0 },
+        { name: "Risk Zone", pos: 50, risk: true },
+        { name: "Dest. — Chennai", pos: 100 }
+      ]
+    },
+    {
+      id: "FR002", risk: "med", score: 54,
+      product: "Onions", qty: "1,200 kg",
+      from: "Erode", to: "Coimbatore",
+      weather: { rain: 40, humidity: 68, temp: 31 },
+      ai: "Moderate humidity may accelerate spoilage in enclosed transport. Ensure ventilation is active; no route change needed.",
+      eta: "2h 10m remaining",
+      progress: 62,
+      stops: [
+        { name: "Farm — Erode", pos: 0 },
+        { name: "Checkpoint — Tirupur", pos: 45 },
+        { name: "Dest. — Coimbatore", pos: 100 }
+      ]
+    },
+    {
+      id: "FR003", risk: "low", score: 21,
+      product: "Rice", qty: "2,000 kg",
+      from: "Thanjavur", to: "Madurai",
+      weather: { rain: 8, humidity: 45, temp: 33 },
+      ai: "Conditions are favorable across the entire route. No action required — proceed as scheduled.",
+      eta: "5h 45m remaining",
+      progress: 18,
+      stops: [
+        { name: "Farm — Thanjavur", pos: 0 },
+        { name: "Dest. — Madurai", pos: 100 }
+      ]
+    },
+    {
+      id: "FR004", risk: "high", score: 76,
+      product: "Bananas", qty: "800 kg",
+      from: "Trichy", to: "Salem",
+      weather: { rain: 70, humidity: 85, temp: 28 },
+      ai: "Storm cell forming near the midpoint of this route. Bananas are sensitive to temperature swings — recommend cold-chain check and alternate route via SH-17.",
+      eta: "1h 55m remaining",
+      progress: 74,
+      stops: [
+        { name: "Farm — Trichy", pos: 0 },
+        { name: "Namakkal", pos: 35 },
+        { name: "Risk Zone", pos: 68, risk: true },
+        { name: "Dest. — Salem", pos: 100 }
+      ]
+    },
+    {
+      id: "FR005", risk: "med", score: 48,
+      product: "Carrots", qty: "600 kg",
+      from: "Ooty", to: "Coimbatore",
+      weather: { rain: 35, humidity: 60, temp: 22 },
+      ai: "Light rain likely but temperature is favorable for root vegetables. Monitor conditions; no immediate action needed.",
+      eta: "3h 05m remaining",
+      progress: 30,
+      stops: [
+        { name: "Farm — Ooty", pos: 0 },
+        { name: "Mettupalayam", pos: 55 },
+        { name: "Dest. — Coimbatore", pos: 100 }
+      ]
+    },
+    {
+      id: "FR006", risk: "low", score: 15,
+      product: "Potatoes", qty: "1,500 kg",
+      from: "Kodaikanal", to: "Dindigul",
+      weather: { rain: 5, humidity: 40, temp: 24 },
+      ai: "Clear skies and stable temperature across the route. Shipment on track with no risk factors detected.",
+      eta: "2h 30m remaining",
+      progress: 88,
+      stops: [
+        { name: "Farm — Kodaikanal", pos: 0 },
+        { name: "Dest. — Dindigul", pos: 100 }
+      ]
+    }
+  ];
+
+  let currentFilter = "all";
+  let selectedId = shipments[0].id;
+
+  function riskLabel(r){
+    return r === "high" ? "High Risk" : r === "med" ? "Medium Risk" : "Low Risk";
+  }
+
+  // Builds the dynamic multi-stop route bar with a live-moving vehicle marker.
+  // Works for any number of stops in s.stops (2, 3, 4, or more) — nothing is hardcoded.
+  function renderRoute(s){
+    const stopsHtml = s.stops.map(st => `
+      <div class="route-point ${st.risk ? 'risk' : ''} ${st.pos <= s.progress ? 'done' : ''}" style="left:${st.pos}%;">
+        <div class="route-dot"></div>
+        <div class="lbl">${st.name}</div>
+      </div>
+    `).join("");
+
+    // When the moving marker lands close to a stop (within 6% of the
+    // line), it visually collides with that stop's dot — two circles
+    // stacked on top of each other. Lift the mover above the track in
+    // that case so both stay readable instead of overlapping.
+    const nearestStopDist = Math.min(...s.stops.map(st => Math.abs(st.pos - s.progress)));
+    const isNearStop = nearestStopDist < 6;
+
+    return `
+      <div class="route-line ${isNearStop ? 'has-raised-mover' : ''}">
+        <div class="route-track"></div>
+        <div class="route-track-fill" style="width:${s.progress}%;"></div>
+        ${stopsHtml}
+        <div class="route-mover ${isNearStop ? 'raised' : ''}" style="left:${s.progress}%;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M3 13l3-7h9l3 5h3v6h-2M3 13v4h2M3 13h13M8 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="route-progress-label"><b>${s.progress}%</b> of route completed</div>
+    `;
+  }
+
+  function renderList(){
+    const listEl = document.getElementById("shipList");
+    const filtered = shipments.filter(s => currentFilter === "all" || s.risk === currentFilter);
+    listEl.innerHTML = filtered.map(s => `
+      <div class="ship-row ${s.id === selectedId ? 'selected' : ''}" data-id="${s.id}">
+        <div class="top-line">
+          ${productImageTag(s.product, "ship-thumb")}
+          <div style="flex:1;min-width:0;">
+            <div class="row1">
+              Shipment #${s.id}
+              <span class="risk-chip ${s.risk}"><span class="d"></span>${riskLabel(s.risk)}</span>
+            </div>
+            <div class="row2">${s.product} · ${s.qty} · ${s.from} → ${s.to}</div>
+            <div class="row3">${s.eta}</div>
+          </div>
+        </div>
+      </div>
+    `).join("");
+
+    listEl.querySelectorAll(".ship-row").forEach(row => {
+      row.addEventListener("click", () => {
+        selectedId = row.dataset.id;
+        renderList();
+        renderDetail();
+      });
+    });
+  }
+
+  function renderDetail(){
+    const s = shipments.find(x => x.id === selectedId);
+    const panel = document.getElementById("detailPanel");
+    if(!s){ panel.innerHTML = "<p style='color:#8a938b'>Select a shipment to view details.</p>"; return; }
+
+    panel.innerHTML = `
+      <div class="detail-head">
+        <div>
+          <h2>Shipment #${s.id}</h2>
+          <div class="id">${s.product} shipment · ${s.eta}</div>
+        </div>
+        <span class="risk-chip ${s.risk}" style="font-size:12px;padding:6px 14px;"><span class="d"></span>${riskLabel(s.risk)}</span>
+      </div>
+
+      <div class="cargo-hero">
+        ${productImageTag(s.product, "cargo-hero-img")}
+        <div>
+          <div class="name">${s.product}</div>
+          <div class="meta">${s.qty} in transit</div>
+        </div>
+      </div>
+
+      <div class="cargo-grid">
+        <div class="cargo-item"><div class="label">Product</div><div class="value">${s.product}</div></div>
+        <div class="cargo-item"><div class="label">From</div><div class="value">${s.from}</div></div>
+        <div class="cargo-item"><div class="label">To</div><div class="value">${s.to}</div></div>
+      </div>
+
+      <div class="route-card">
+        ${renderRoute(s)}
+      </div>
+
+      <div class="two-col">
+        <div>
+          <div class="section-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4 2.2A4 4 0 0 0 6 19h11.5z"/></svg>
+            Weather
+          </div>
+          <div class="weather-box">
+            <div class="weather-item">
+              <div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2s6 7 6 12a6 6 0 0 1-12 0c0-5 6-12 6-12z"/></svg>Rain</div>
+              <div class="v">${s.weather.rain}%</div>
+            </div>
+            <div class="weather-item">
+              <div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10M12 22a4 4 0 0 0 2-7.5V4a2 2 0 0 0-4 0v10.5A4 4 0 0 0 12 22z"/></svg>Humidity</div>
+              <div class="v">${s.weather.humidity}%</div>
+            </div>
+            <div class="weather-item">
+              <div class="l"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg>Temp</div>
+              <div class="v">${s.weather.temp}°C</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-title">Risk Score</div>
+          <div class="risk-box">
+            <div class="risk-score-num">${s.score}<span>/100</span></div>
+            <div class="risk-track"><div class="risk-fill" style="width:${s.score}%"></div></div>
+            <div class="risk-note">${s.score >= 70 ? "Immediate action recommended" : s.score >= 40 ? "Monitor closely" : "Low concern"}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div class="txt"><b>AI Recommendation:</b> ${s.ai}</div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn btn-primary" onclick="alert('Opening alternative route options for #${s.id}...')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5-2V6l5 2m0 12l6-2m-6 2V8m6 10l5 2V8l-5-2m0 14V6m0 2L9 6"/></svg>
+          View Alternative Route
+        </button>
+        <button class="btn btn-secondary" onclick="alert('Notifying buyer for #${s.id}...')">
+          Notify Buyer
+        </button>
+      </div>
+    `;
+  }
+
+  document.querySelectorAll(".filter-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".filter-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      currentFilter = tab.dataset.filter;
+      renderList();
+    });
+  });
+
+  renderList();
+  renderDetail();
+
+  // Simulates live GPS updates: every few seconds, nudge each shipment's
+  // progress forward slightly and re-render if it's the one currently shown.
+  // Replace this with real polling of your tracking API, e.g.:
+  //   const { progress } = await fetch(`/api/shipments/${id}/location`).then(r => r.json());
+  setInterval(() => {
+    shipments.forEach(s => {
+      if (s.progress < 100) {
+        s.progress = Math.min(100, s.progress + (Math.random() * 2 + 0.5));
+        s.progress = Math.round(s.progress * 10) / 10;
+      }
+    });
+    renderDetail();
+  }, 4000);
+
+  // ---- Mobile nav: hamburger opens/closes the slide-in sidebar ----
+  (function(){
+    const btn = document.getElementById("hamburgerBtn");
+    const sidebar = document.getElementById("sidebarNav");
+    const overlay = document.getElementById("sidebarOverlay");
+    if (!btn || !sidebar || !overlay) return;
+
+    function openNav(){
+      sidebar.classList.add("open");
+      overlay.classList.add("open");
+      btn.setAttribute("aria-expanded", "true");
+    }
+    function closeNav(){
+      sidebar.classList.remove("open");
+      overlay.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+    btn.addEventListener("click", () => {
+      sidebar.classList.contains("open") ? closeNav() : openNav();
+    });
+    overlay.addEventListener("click", closeNav);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeNav(); });
+    // Close the drawer after tapping a nav link, so the next page
+    // doesn't load with the menu still open.
+    sidebar.querySelectorAll("a.nav-link").forEach(link => {
+      link.addEventListener("click", closeNav);
+    });
+  })();
+
+</script>
+
+</body>
+</html>
